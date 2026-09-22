@@ -1,0 +1,22 @@
+# ==========================================
+# Netlify Configuration for Alight AI Assistant
+# ==========================================
+
+[build]
+  base = "client"
+  publish = "dist"
+  command = "npm run build"
+
+# Optional: If you deploy your backend on Render/Railway,
+# uncomment below to proxy API requests with zero CORS configuration!
+# [[redirects]]
+#   from = "/api/*"
+#   to = "https://your-alight-backend.onrender.com/api/:splat"
+#   status = 200
+#   force = true
+
+# Single-Page Application (SPA) Client Routing Fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

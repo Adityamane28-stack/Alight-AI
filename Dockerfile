@@ -43,3 +43,4 @@ RUN cd server && npx prisma db push --skip-generate
 EXPOSE 5000
 
 CMD ["node", "server/dist/index.js"]
+
