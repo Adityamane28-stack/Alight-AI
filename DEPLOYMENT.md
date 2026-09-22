@@ -6,13 +6,13 @@ Alight can be deployed as an **all-in-one full-stack service** where the Node.js
 
 ## 🌟 Quick Platform Comparison
 
-| Platform                                              | Difficulty          | Cost                     | Database Persistence              | Best For                |
-| :---------------------------------------------------- | :------------------ | :----------------------- | :-------------------------------- | :---------------------- |
-| **[Render.com](#option-1-render-recommended-free)**   | Very Easy (1-Click) | **Free**                 | Disks available (or local SQLite) | **Best Overall / Free** |
-| **[Railway.app](#option-2-railway-one-click)**        | Very Easy           | Free trial / \$5 mo      | Persistent volumes supported      | Easiest setup           |
-| **[Netlify + Render](#option-5-netlify-frontend--render--railway-backend)** | Easy | **Free**          | Backend persistent on Render      | Global CDN Frontend     |
-| **[Docker / VPS](#option-3-docker--vps-self-hosted)** | Intermediate        | Self-hosted (\$4-\$6 mo) | Full local persistence            | Full control            |
-| **[Google Cloud Run](#option-4-google-cloud-run)**    | Intermediate        | Generous free tier       | Serverless                        | Scalable container      |
+| Platform                                                                    | Difficulty          | Cost                     | Database Persistence              | Best For                |
+| :-------------------------------------------------------------------------- | :------------------ | :----------------------- | :-------------------------------- | :---------------------- |
+| **[Render.com](#option-1-render-recommended-free)**                         | Very Easy (1-Click) | **Free**                 | Disks available (or local SQLite) | **Best Overall / Free** |
+| **[Railway.app](#option-2-railway-one-click)**                              | Very Easy           | Free trial / \$5 mo      | Persistent volumes supported      | Easiest setup           |
+| **[Netlify + Render](#option-5-netlify-frontend--render--railway-backend)** | Easy                | **Free**                 | Backend persistent on Render      | Global CDN Frontend     |
+| **[Docker / VPS](#option-3-docker--vps-self-hosted)**                       | Intermediate        | Self-hosted (\$4-\$6 mo) | Full local persistence            | Full control            |
+| **[Google Cloud Run](#option-4-google-cloud-run)**                          | Intermediate        | Generous free tier       | Serverless                        | Scalable container      |
 
 ---
 
@@ -167,13 +167,16 @@ Cloud Run runs containerized web services serverlessly:
 You can host the **Alight Frontend** on Netlify for free global CDN delivery and custom domains:
 
 ### Why Decouple with Netlify?
+
 - **Frontend on Netlify**: Netlify is a world-class static host. You get instant builds, instant cache invalidation, custom domain management, and free SSL.
 - **Backend on Render / Railway**: The backend uses SQLite (`dev.db`), Server-Sent Events (SSE) token streaming, and long-running HTTP connections. Netlify serverless functions have execution timeouts (10-26s max) and ephemeral storage (SQLite would lose its database file on each cold start). Therefore, running the Node.js Express server on Render or Railway while hosting the frontend on Netlify provides the ultimate production architecture.
 
 ### Step 1: Deploy the Backend on Render or Railway
+
 Follow [Option 1](#option-1-render-recommended-free) to deploy the backend. Note down your backend URL (e.g. `https://alight-backend.onrender.com`).
 
 ### Step 2: Deploy Frontend on Netlify
+
 1. Log in to [app.netlify.com](https://app.netlify.com/) and click **Add new site** → **Import an existing project**.
 2. Select your GitHub repository.
 3. Configure build settings:
@@ -192,4 +195,3 @@ Follow [Option 1](#option-1-render-recommended-free) to deploy the backend. Note
 - [ ] Add your `GROQ_API_KEY` for 14,400 free requests per day at ~1,000 tok/sec.
 - [ ] Test user registration and login on your live domain.
 - [ ] Send a test prompt to verify SSE token streaming is passing through any proxies without buffering.
-
