@@ -42,6 +42,18 @@ export const api = {
     return { clientId: '', configured: false };
   },
 
+  async setGoogleClientId(clientId: string): Promise<{ success: boolean; clientId: string }> {
+    const res = await fetch(`${API_BASE}/auth/google/client-id`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update Google Client ID');
+    return data;
+  },
+
+
   async loginWithGoogle(payload: { credential?: string; accessToken?: string; email?: string; name?: string }): Promise<{ token: string; user: User }> {
     const res = await fetch(`${API_BASE}/auth/google`, {
       method: 'POST',

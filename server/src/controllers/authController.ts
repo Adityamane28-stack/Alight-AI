@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
+import path from 'path';
 import prisma from '../config/prisma.js';
 import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
@@ -143,6 +145,37 @@ export const getGoogleConfig = async (_req: AuthenticatedRequest, res: Response)
     configured: Boolean(process.env.GOOGLE_CLIENT_ID),
   });
 };
+
+export const setGoogleClientId = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { clientId } = req.body;
+    if (!clientId || typeof clientId !== 'string') {
+      res.status(400).json({ error: 'Valid Client ID string is required' });
+      return;
+    }
+
+    const cleanClientId = clientId.trim();
+    process.env.GOOGLE_CLIENT_ID = cleanClientId;
+
+    // Update server/.env file
+    const envPath = path.resolve(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      let content = fs.readFileSync(envPath, 'utf8');
+      if (content.includes('GOOGLE_CLIENT_ID=')) {
+        content = content.replace(/GOOGLE_CLIENT_ID=.*/g, `GOOGLE_CLIENT_ID="${cleanClientId}"`);
+      } else {
+        content += `\nGOOGLE_CLIENT_ID="${cleanClientId}"\n`;
+      }
+      fs.writeFileSync(envPath, content, 'utf8');
+    }
+
+    res.json({ success: true, clientId: cleanClientId });
+  } catch (err: any) {
+    console.error('Failed to set Google Client ID:', err);
+    res.status(500).json({ error: 'Failed to update Google Client ID' });
+  }
+};
+
 
 export const googleAuth = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
