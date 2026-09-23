@@ -321,6 +321,10 @@ export async function* streamUnifiedChat({
       attempts.push({ provider: 'gemini', model: 'gemini-3.6-flash', apiKey: key });
     }
   }
+  // 4. If OpenAI key is present, add to cascade!
+  if (openaiKey && !attempts.some((a) => a.provider === 'openai')) {
+    attempts.push({ provider: 'openai', model: 'gpt-4o-mini', apiKey: openaiKey });
+  }
 
   if (attempts.length === 0) {
     yield '⚠️ **No Active API Keys Found**: Please configure your API key in `server/.env` or in the Chat Settings panel. You can add a free Groq key (14,400 req/day from https://console.groq.com) or Google Gemini key.';

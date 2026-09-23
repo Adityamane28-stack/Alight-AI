@@ -70,4 +70,18 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     description: 'Step-by-step reasoning intelligence with seamless failover backup',
     badge: 'Reasoning',
   },
+  {
+    id: 'gpt-4o',
+    name: 'OpenAI: GPT-4o Flagship',
+    provider: 'OpenAI',
+    description: 'Most intelligent OpenAI multimodal model for complex reasoning and tasks',
+    badge: 'OpenAI',
+  },
+  {
+    id: 'gpt-4o-mini',
+    name: 'OpenAI: GPT-4o Mini',
+    provider: 'OpenAI',
+    description: 'Affordable, fast, and lightweight OpenAI model for general tasks',
+    badge: 'Fast',
+  },
 ];
