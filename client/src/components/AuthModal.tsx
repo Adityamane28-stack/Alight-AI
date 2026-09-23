@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Zap,
   Mail,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { api } from '../services/api';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -42,6 +43,58 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState<string>('');
+
+  // Fetch configured Google Client ID from backend
+  useEffect(() => {
+    api.getGoogleConfig()
+      .then((cfg) => {
+        if (cfg.clientId) {
+          setGoogleClientId(cfg.clientId);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Listen for OAuth token if returned via popup redirect or postMessage
+  useEffect(() => {
+    // If opened in popup window with token in hash
+    if (window.location.hash.includes('access_token=')) {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const token = hashParams.get('access_token');
+      if (token) {
+        if (window.opener) {
+          window.opener.postMessage({ type: 'GOOGLE_OAUTH_TOKEN', accessToken: token }, '*');
+          window.close();
+          return;
+        } else {
+          setIsLoading(true);
+          loginWithGoogle({ accessToken: token })
+            .catch((err: any) => setError(err.message || 'Google sign-in failed.'))
+            .finally(() => {
+              setIsLoading(false);
+              window.history.replaceState({}, document.title, window.location.pathname);
+            });
+        }
+      }
+    }
+
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_OAUTH_TOKEN' && event.data?.accessToken) {
+        setIsLoading(true);
+        try {
+          await loginWithGoogle({ accessToken: event.data.accessToken });
+        } catch (err: any) {
+          setError(err.message || 'Google sign-in failed.');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [loginWithGoogle]);
 
   // Google Flow: false = hidden, 'select-account' | 'permissions' | 'custom-email'
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
@@ -99,12 +152,78 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
     }
   };
 
-  // Open Google Sign-In Flow
+  // Open Real Google Sign-In Flow
   const handleOpenGoogle = () => {
     setError(null);
+
+    // 1. If Google Client ID is configured, trigger real Google OAuth 2.0 Identity Services!
+    if (googleClientId) {
+      const google = (window as any).google;
+      if (google?.accounts?.oauth2) {
+        try {
+          const tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: googleClientId,
+            scope: 'email profile openid',
+            prompt: 'select_account',
+            callback: async (tokenResponse: any) => {
+              if (tokenResponse?.access_token) {
+                setIsLoading(true);
+                try {
+                  await loginWithGoogle({ accessToken: tokenResponse.access_token });
+                } catch (err: any) {
+                  setError(err.message || 'Google sign-in failed.');
+                } finally {
+                  setIsLoading(false);
+                }
+              } else if (tokenResponse?.error && tokenResponse.error !== 'user_cancelled') {
+                setError(`Google sign-in error: ${tokenResponse.error_description || tokenResponse.error}`);
+              }
+            },
+            error_callback: (err: any) => {
+              console.error('Google OAuth error:', err);
+              if (err?.message?.includes('origin') || err?.type === 'popup_failed_to_open') {
+                setError(
+                  `Google Sign-In notice: Ensure "${window.location.origin}" is added to Authorized JavaScript Origins in your Google Cloud Console.`
+                );
+              } else {
+                setError(err?.message || 'Google sign-in could not be completed.');
+              }
+            },
+          });
+
+          tokenClient.requestAccessToken();
+          return;
+        } catch (e: any) {
+          console.warn('Google Identity Services token client failed, falling back to popup window:', e);
+        }
+      }
+
+      // If GIS SDK is still loading or tokenClient failed, open Google OAuth popup window
+      const redirectUri = window.location.origin;
+      const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
+        googleClientId
+      )}&redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}&response_type=token&scope=${encodeURIComponent('email profile openid')}&prompt=select_account`;
+
+      const width = 500;
+      const height = 620;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      const popup = window.open(
+        oauthUrl,
+        'google-oauth',
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`
+      );
+
+      if (!popup) {
+        setError('Popup was blocked by your browser. Please allow popups for this site.');
+      }
+      return;
+    }
+
+    // Fallback: If no client ID configured, open in-app chooser
     setIsGoogleModalOpen(true);
-    // If user has previously signed into accounts on this browser, show account chooser;
-    // Otherwise open the Google email input directly!
     if (googleAccounts.length > 0) {
       setGoogleStep('select-account');
     } else {
