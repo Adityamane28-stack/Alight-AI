@@ -13,6 +13,7 @@ import {
   Check,
   ChevronLeft,
   Plus,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -50,19 +51,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
   const [customGoogleName, setCustomGoogleName] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // Available Google accounts for selection
-  const [googleAccounts, setGoogleAccounts] = useState<GoogleAccountOption[]>([
-    {
-      name: 'Aditya Mane',
-      email: 'adityamane@gmail.com',
-      avatarBg: 'bg-indigo-600',
-    },
-    {
-      name: 'Aditya (Personal)',
-      email: 'aditya.personal@gmail.com',
-      avatarBg: 'bg-emerald-600',
-    },
-  ]);
+  // Google accounts loaded dynamically from localStorage (zero fake/hardcoded accounts)
+  const [googleAccounts, setGoogleAccounts] = useState<GoogleAccountOption[]>(() => {
+    try {
+      const stored = localStorage.getItem('alight_google_accounts');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
   if (!isOpen) return null;
 
@@ -102,20 +99,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
     }
   };
 
-  // Open Google Account Chooser
+  // Open Google Sign-In Flow
   const handleOpenGoogle = () => {
     setError(null);
     setIsGoogleModalOpen(true);
-    setGoogleStep('select-account');
+    // If user has previously signed into accounts on this browser, show account chooser;
+    // Otherwise open the Google email input directly!
+    if (googleAccounts.length > 0) {
+      setGoogleStep('select-account');
+    } else {
+      setGoogleStep('custom-email');
+    }
   };
 
-  // User selects an account
+  // User selects a previously used account
   const handleSelectGoogleAccount = (account: GoogleAccountOption) => {
     setSelectedGoogleAccount(account);
     setGoogleStep('permissions');
   };
 
-  // User enters a custom Google email
+  // User removes a remembered account from device
+  const handleRemoveGoogleAccount = (e: React.MouseEvent, emailToRemove: string) => {
+    e.stopPropagation();
+    setGoogleAccounts((prev) => {
+      const updated = prev.filter((a) => a.email !== emailToRemove);
+      try {
+        localStorage.setItem('alight_google_accounts', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  // User enters their real Google email
   const handleCustomEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanEmail = customGoogleEmail.trim().toLowerCase();
@@ -127,13 +142,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
     const derivedName = customGoogleName.trim() || cleanEmail.split('@')[0].replace(/[._]/g, ' ');
     const formattedName = derivedName.charAt(0).toUpperCase() + derivedName.slice(1);
 
+    const colors = ['bg-blue-600', 'bg-indigo-600', 'bg-emerald-600', 'bg-rose-600', 'bg-amber-600'];
+    const chosenColor = colors[Math.abs(cleanEmail.charCodeAt(0)) % colors.length];
+
     const newAccount: GoogleAccountOption = {
       name: formattedName,
       email: cleanEmail,
-      avatarBg: 'bg-blue-600',
+      avatarBg: chosenColor,
     };
 
-    setGoogleAccounts((prev) => [newAccount, ...prev.filter((a) => a.email !== cleanEmail)]);
     setSelectedGoogleAccount(newAccount);
     setGoogleStep('permissions');
   };
@@ -149,6 +166,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
         email: selectedGoogleAccount.email,
         name: selectedGoogleAccount.name,
       });
+
+      // Save real user account to localStorage for one-click future logins
+      setGoogleAccounts((prev) => {
+        const updated = [
+          selectedGoogleAccount,
+          ...prev.filter((a) => a.email !== selectedGoogleAccount.email),
+        ];
+        try {
+          localStorage.setItem('alight_google_accounts', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
       setIsGoogleModalOpen(false);
     } catch (err: any) {
       setError(err.message || 'Google authentication failed.');
@@ -199,7 +229,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
             {googleStep === 'custom-email' && (
               <>
                 <h2 className="text-xl font-medium text-stone-800 tracking-tight">Sign in with Google</h2>
-                <p className="text-sm text-stone-500 mt-1">Enter your Google Account email</p>
+                <p className="text-sm text-stone-500 mt-1">to continue to Alight</p>
               </>
             )}
 
@@ -229,20 +259,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
             <div className="px-6 pb-6">
               <div className="divide-y divide-stone-100 border-t border-b border-stone-200">
                 {googleAccounts.map((acc, index) => (
-                  <button
+                  <div
                     key={index}
-                    type="button"
                     onClick={() => handleSelectGoogleAccount(acc)}
-                    className="w-full py-3.5 px-3 flex items-center gap-3.5 text-left hover:bg-stone-50 transition cursor-pointer group"
+                    className="w-full py-3 px-3 flex items-center justify-between hover:bg-stone-50 transition cursor-pointer group rounded-lg"
                   >
-                    <div className={`w-9 h-9 rounded-full ${acc.avatarBg} text-white flex items-center justify-center font-semibold text-sm shadow-xs group-hover:scale-105 transition-transform`}>
-                      {acc.name.charAt(0)}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className={`w-9 h-9 rounded-full ${acc.avatarBg} text-white flex items-center justify-center font-semibold text-sm shadow-xs group-hover:scale-105 transition-transform shrink-0`}>
+                        {acc.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0 text-left">
+                        <p className="text-sm font-medium text-stone-800 truncate">{acc.name}</p>
+                        <p className="text-xs text-stone-500 truncate">{acc.email}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-stone-800 truncate">{acc.name}</p>
-                      <p className="text-xs text-stone-500 truncate">{acc.email}</p>
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      title="Remove account from device"
+                      onClick={(e) => handleRemoveGoogleAccount(e, acc.email)}
+                      className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 ))}
 
                 {/* Add/Use another account button */}
@@ -254,7 +293,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
                   }}
                   className="w-full py-3.5 px-3 flex items-center gap-3.5 text-left hover:bg-stone-50 transition cursor-pointer group"
                 >
-                  <div className="w-9 h-9 rounded-full bg-stone-100 text-stone-600 flex items-center justify-center font-medium text-sm border border-stone-200 group-hover:bg-stone-200 transition">
+                  <div className="w-9 h-9 rounded-full bg-stone-100 text-stone-600 flex items-center justify-center font-medium text-sm border border-stone-200 group-hover:bg-stone-200 transition shrink-0">
                     <Plus className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
@@ -267,7 +306,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
                 <button
                   type="button"
                   onClick={() => setIsGoogleModalOpen(false)}
-                  className="text-stone-500 hover:text-stone-800 transition"
+                  className="text-stone-500 hover:text-stone-800 transition cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -276,13 +315,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
             </div>
           )}
 
-          {/* STEP 1.5: CUSTOM GOOGLE EMAIL INPUT */}
+          {/* STEP 1.5: GOOGLE EMAIL INPUT */}
           {googleStep === 'custom-email' && (
             <div className="px-8 pb-8">
               <form onSubmit={handleCustomEmailSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-stone-600 mb-1">
-                    Google Email
+                    Email or phone
                   </label>
                   <input
                     type="email"
@@ -290,7 +329,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
                     autoFocus
                     value={customGoogleEmail}
                     onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                    placeholder="example@gmail.com"
+                    placeholder="Enter your Google email"
                     className="w-full px-3.5 py-2.5 rounded-xl text-sm border border-stone-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
                   />
                 </div>
@@ -312,13 +351,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
                   <button
                     type="button"
                     onClick={() => {
-                      setGoogleStep('select-account');
+                      if (googleAccounts.length > 0) {
+                        setGoogleStep('select-account');
+                      } else {
+                        setIsGoogleModalOpen(false);
+                      }
                       setError(null);
                     }}
-                    className="text-xs text-stone-500 hover:text-stone-800 transition flex items-center gap-1"
+                    className="text-xs text-stone-500 hover:text-stone-800 transition flex items-center gap-1 cursor-pointer"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
-                    <span>Back</span>
+                    <span>{googleAccounts.length > 0 ? 'Back' : 'Cancel'}</span>
                   </button>
                   <button
                     type="submit"
