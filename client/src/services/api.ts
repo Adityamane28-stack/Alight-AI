@@ -10,6 +10,20 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+async function parseJsonResponse<T = any>(res: Response): Promise<T> {
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await res.text();
+    if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+      throw new Error(
+        'Backend server not reached. Netlify only hosts the static frontend UI and cannot run the Node.js backend or database. Please deploy the backend (e.g. on Render) or deploy the entire app to Render.'
+      );
+    }
+    throw new Error(`Invalid server response (${res.status}): ${text.slice(0, 100)}`);
+  }
+  return await res.json();
+}
+
 export const api = {
   // Auth API
   async register(email: string, password: string, name?: string): Promise<{ token: string; user: User }> {
@@ -18,7 +32,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name }),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Failed to register');
     return data;
   },
@@ -29,7 +43,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Failed to log in');
     return data;
   },
@@ -37,7 +51,7 @@ export const api = {
   async getGoogleConfig(): Promise<{ clientId: string; configured: boolean }> {
     try {
       const res = await fetch(`${API_BASE}/auth/google/config`);
-      if (res.ok) return await res.json();
+      if (res.ok) return await parseJsonResponse(res);
     } catch {}
     return { clientId: '', configured: false };
   },
@@ -48,11 +62,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientId }),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Failed to update Google Client ID');
     return data;
   },
-
 
   async loginWithGoogle(payload: { credential?: string; accessToken?: string; email?: string; name?: string }): Promise<{ token: string; user: User }> {
     const res = await fetch(`${API_BASE}/auth/google`, {
@@ -60,7 +73,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Failed to sign in with Google');
     return data;
   },
@@ -69,7 +82,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/auth/me`, {
       headers: getAuthHeaders(),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Failed to fetch user');
     return data;
   },
@@ -79,7 +92,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/conversations`, {
       headers: getAuthHeaders(),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Failed to get conversations');
     return data.conversations;
   },
@@ -95,7 +108,7 @@ export const api = {
       headers: getAuthHeaders(),
       body: JSON.stringify(params || {}),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Failed to create conversation');
     return data.conversation;
   },
@@ -104,7 +117,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/conversations/${id}`, {
       headers: getAuthHeaders(),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Failed to get conversation');
     return data.conversation;
   },
@@ -118,7 +131,7 @@ export const api = {
       headers: getAuthHeaders(),
       body: JSON.stringify(params),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     if (!res.ok) throw new Error(data.error || 'Failed to update conversation');
     return data.conversation;
   },
@@ -129,7 +142,7 @@ export const api = {
       headers: getAuthHeaders(),
     });
     if (!res.ok) {
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
       throw new Error(data.error || 'Failed to delete conversation');
     }
   },
